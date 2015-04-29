@@ -10,7 +10,7 @@
 
 // ----- Channel hop timer variables
 
-#define CHANNEL_HOP_INTERVAL 1000
+#define CHANNEL_HOP_INTERVAL 10000
 static volatile os_timer_t channelHop_timer;
 
 // ----- Network list timer variables
@@ -22,24 +22,6 @@ SLIST_HEAD(router_info_head, router_info) router_list;
 void ICACHE_FLASH_ATTR start_process();
 void ICACHE_FLASH_ATTR promisc_cb(uint8 *buf, uint16 len);
 
-
-void printmac(char* buf, unsigned int o)
-{
- if(buf[o+4] == 0x00 && buf[o+5] == 0x00)
-  return;
-if(buf[o+4] == 0xff && buf[o+5] == 0xff)
-  return;
-int i;
-for(i=0;i<6;i++)
-  if(buf[o+i] != 0x00 && buf[o+i] != 0xff)
-   goto good;
-return;
-good: ;
-   // char mac[strlen("00:00:00:00:00:00\n")];
-os_printf("%02x:%02x:%02x:%02x:%02x:%02x\n", buf[o+0], buf[o+1], buf[o+2], buf[o+3], buf[o+4], buf[o+5]);
-   // uart0_sendStr(mac);
-}
-
 void channelHop(void *arg)
 {
     // 1 - 13 channel hopping
@@ -50,6 +32,19 @@ void channelHop(void *arg)
 
 void ICACHE_FLASH_ATTR promisc_cb(uint8 *buf, uint16 len)
 {
+
+    os_printf("LEN: %d ", len);
+    int i = 0;
+    for (i = 0; i < len; ++i) {
+        os_printf("%02x", buf[i]);
+    }
+    os_printf("\n");
+    
+    // printmac(buf, 16);
+    // printmac(buf, 22);
+    // printmac(buf, 28);
+    // os_printf("\n");
+
     // os_printf("-> %3d: %d\n", wifi_get_channel(), len);
     // printmac(buf,  4);
     // printmac(buf, 10);
@@ -57,35 +52,35 @@ void ICACHE_FLASH_ATTR promisc_cb(uint8 *buf, uint16 len)
 
     // os_printf("\n");
 
-    if ((buf[1] & 0x01) == 0x01) {  // just toDS
-        // printmac(buf,  4);
-        // os_printf("\n");
+    // if ((buf[1] & 0x01) == 0x01) {  // just toDS
+    //     // printmac(buf,  4);
+    //     // os_printf("\n");
 
-    uint8 *mac = buf + 4;
+    // uint8 *mac = buf + 4;
 
-    struct router_info *info = NULL;
-    SLIST_FOREACH(info, &router_list, next) {
+    // struct router_info *info = NULL;
+    // SLIST_FOREACH(info, &router_list, next) {
 
-            // os_printf("comparing: ");
-            // printmac(info->bssid, 0);
-            // os_printf(" to ");
-            // printmac(mac, 0);
-            // os_printf("\n");
+    // //         // os_printf("comparing: ");
+    // //         // printmac(info->bssid, 0);
+    // //         // os_printf(" to ");
+    // //         // printmac(mac, 0);
+    // //         // os_printf("\n");
 
-        if (os_memcmp(mac + 12, info->bssid, 6) == 0) {
-            os_printf("1 Found SSID: %s\n", info->ssid);
-        }
-        else if (os_memcmp(mac + 12, info->bssid, 6) == 0) {
-            os_printf("2 Found SSID: %s\n", info->ssid);
-        }
-        else if (os_memcmp(mac + 12, info->bssid, 6) == 0) {
-            os_printf("3 Found SSID: %s\n", info->ssid);
-        }
-    }
+    //     if (os_memcmp(mac + 12, info->bssid, 6) == 0) {
+    //         os_printf("1 Found SSID: %s\n", info->ssid);
+    //     }
+    //     else if (os_memcmp(mac + 18, info->bssid, 6) == 0) {
+    //         os_printf("2 Found SSID: %s\n", info->ssid);
+    //     }
+    //     else if (os_memcmp(mac + 24, info->bssid, 6) == 0) {
+    //         os_printf("3 Found SSID: %s\n", info->ssid);
+    //     }
+    // }
 
         // printmac(buf, 10);
         // printmac(buf, 16);
-    }
+    // }
 
 }
 
@@ -174,8 +169,7 @@ void ICACHE_FLASH_ATTR system_init_done()
 //Init function 
 void ICACHE_FLASH_ATTR user_init()
 {
-    uart_div_modify(0, UART_CLK_FREQ / 9600);
-
+    uart_div_modify(0, UART_CLK_FREQ / 115200);
 
     os_printf("*** Monitor mode test ***\r\n");
 

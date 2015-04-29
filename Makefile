@@ -24,8 +24,8 @@ XTENSA_TOOLS_ROOT ?= /Volumes/esp-open-sdk/esp-open-sdk/xtensa-lx106-elf/bin
 SDK_BASE	?= /Volumes/esp-open-sdk/esp-open-sdk/esp_iot_sdk_v1.0.1
 
 # esptool.py path and port
-ESPTOOL		?= esptool.py
-ESPPORT		?= /dev/ttyUSB0
+ESPTOOL		?= /Users/nicklee/Documents/development/esptool/esptool.py
+ESPPORT		?= /dev/tty.SLAB_USBtoUART
 
 # name for the target project
 TARGET		= app
