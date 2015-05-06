@@ -5,12 +5,10 @@
 
 // ----- Channel hop timer variables
 
-#define CHANNEL_HOP_INTERVAL 10000
+#define CHANNEL_HOP_INTERVAL 1000
 static volatile os_timer_t channelHop_timer;
 
-// ----- Network list timer variables
-
-SLIST_HEAD(router_info_head, router_info) router_list;
+static int packets = 0;
 
 // ----- Function prototypes
 
@@ -21,28 +19,59 @@ void channelHop(void *arg)
 {
     // 1 - 13 channel hopping
     uint8 new_channel = wifi_get_channel() % 12 + 1;
-    os_printf("** hop to %d **\n", new_channel);
     wifi_set_channel(new_channel);
+    packets = 0;
 }
 
 void ICACHE_FLASH_ATTR promisc_cb(uint8 *buf, uint16 len)
 {
+    if (packets < 50) {
 
-    // os_printf("LEN: %d ", len);
-    int i = 0;
-    
-    os_printf("\n");
+        ssd1306_clear(0);
 
-    char x[20];
-    for (i = 0; i < 10; ++i) {
-        os_sprintf(x + (i * 2), "%02x", buf[i]);
+        // draw the header with the channel #
+        size_t header_size = 20;
+        char *header = (char *)os_zalloc(header_size * sizeof(char));
+        os_sprintf(header, "Sniffing Channel: %d", wifi_get_channel());
+        ssd1306_draw_string(0, 0, 2, header, SSD1306_COLOR_WHITE, SSD1306_COLOR_BLACK);
+        os_free(header);
+
+        size_t i;
+        
+        uint8_t xPos = 0;
+        uint8_t yPos = 16;
+        uint8_t line = 1;
+
+        for (i = 0; i < len; ++i) {
+
+            if (buf[i] == 0x00 || buf[i] == 0xFF) {
+                continue;
+            }
+
+            char *hex = (char *)os_zalloc(2 * sizeof(char));
+
+            os_sprintf(hex, "%02x\0", buf[i]);
+
+            uint8_t width = ssd1306_measure_string(0, hex) + 2;
+            
+            if (xPos + width > ssd1306_get_width(0)) {
+                yPos += ssd1306_get_font_height(0);
+                xPos = 0;
+                line++;
+            }
+
+            if (line < 5) {
+                ssd1306_draw_string(0, xPos, yPos, hex, SSD1306_COLOR_WHITE, SSD1306_COLOR_BLACK);
+            }
+
+            xPos += width;
+            os_free(hex);
+        }
+
+        ssd1306_refresh(0, false);
+
+        packets++;
     }
-    
-    ssd1306_clear(0);
-    
-    ssd1306_draw_string(0, 0, 12, x, SSD1306_COLOR_WHITE, SSD1306_COLOR_BLACK);
-
-    ssd1306_refresh(0, false);
 }
 
 void ICACHE_FLASH_ATTR start_hopping()
@@ -58,73 +87,10 @@ void ICACHE_FLASH_ATTR start_hopping()
     os_printf("done.\n");
 }
 
-void ICACHE_FLASH_ATTR clear_router_list()
-{
-    struct router_info *info = NULL;
-
-    while((info = SLIST_FIRST(&router_list)) != NULL){
-        SLIST_REMOVE_HEAD(&router_list, next);
-        os_free(info);
-    }
-}
-
-void ICACHE_FLASH_ATTR wifi_scan_done(void *arg, STATUS status)
-{
-    if (status == OK) {
-
-        // Clear the old list
-
-        clear_router_list();
-
-        // Populate the new list
-
-        struct bss_info *bss = (struct bss_info *)arg;
-
-        while (bss != NULL) {
-
-            if (bss->channel != 0) {
-                struct router_info *info = NULL;
-
-                // os_printf("ssid %s, channel %d, authmode %d, rssi %d\n", ssid, bss->channel, bss->authmode, bss->rssi);
-
-                info = (struct router_info *)os_zalloc(sizeof(struct router_info));
-                info->authmode = bss->authmode;
-                info->channel = bss->channel;
-
-                os_memcpy(info->bssid, bss->bssid, 6);
-
-                os_memset(info->ssid, 0, 33);
-
-                if (os_strlen(bss->ssid) <= 32) {
-                    os_memcpy(info->ssid, bss->ssid, os_strlen(bss->ssid));
-                } else {
-                    os_memcpy(info->ssid, bss->ssid, 32);
-                }
-
-                SLIST_INSERT_HEAD(&router_list, info, next);
-            }
-            bss = STAILQ_NEXT(bss, next);
-        }
-
-        // Start sniffin'
-
-        start_hopping();
-    }
-    else {
-        start_process();
-    }
-}
-
-void ICACHE_FLASH_ATTR start_process()
-{
-    os_timer_disarm(&channelHop_timer);
-    wifi_station_scan(NULL,wifi_scan_done);
-}
-
 void ICACHE_FLASH_ATTR system_init_done()
 {  
   os_printf(" -> System Init finished!\n\n");
-  start_process();
+  start_hopping();
 }
 
 //Init function 
